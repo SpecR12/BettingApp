@@ -36,6 +36,6 @@ app.get('/api/status', (req, res) => res.json({ message: "Server Online" }));
 const bettingRoutes = require('./src/routes/betting.routes.js');
 app.use('/api', bettingRoutes);
 
-app.listen(port, () => {
+app.listen(port, '0.0.0.0', () => {
   console.log(`🚀 Serverul rulează pe portul ${port}`);
 });
