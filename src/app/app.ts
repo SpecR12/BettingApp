@@ -23,7 +23,7 @@ export class App implements OnInit {
   authError: string = '';
   authData = { email: '', parola: '', codInvitatie: '' };
   token: string | null = null;
-  private API_URL = 'https://bettingapp-3ah3.onrender.com/api';
+  private API_URL = 'https://bettingapp-2uni.onrender.com/api';
 
   // ==========================================
   // 📊 STARE APLICAȚIE
