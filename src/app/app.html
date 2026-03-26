@@ -1,0 +1,372 @@
+<div class="dashboard" [class.dark-mode]="isDarkMode">
+
+  @if (!isLoggedIn) {
+    <div class="auth-container">
+      <div class="auth-card">
+        <div class="auth-header">
+          <h2>📈 Terminal Pariuri Pro</h2>
+          <p>
+            @if (authMode === 'login') { Conectează-te la contul tău }
+            @else if (authMode === 'register') { Creează cont (Doar cu Invitație) }
+            @else { Resetează-ți parola }
+          </p>
+        </div>
+
+        <div class="auth-form">
+          <div class="input-group">
+            <label>Email</label>
+            <input type="email" [(ngModel)]="authData.email" placeholder="nume@exemplu.ro">
+          </div>
+
+          <div class="input-group">
+            <label>{{ authMode === 'reset' ? 'Noua Parolă' : 'Parolă' }}</label>
+            <input type="password" [(ngModel)]="authData.parola" placeholder="••••••••">
+          </div>
+
+          @if (authMode === 'register' || authMode === 'reset') {
+            <div class="input-group mt-3">
+              <label>Cod de Invitație / Securitate</label>
+              <input type="text" [(ngModel)]="authData.codInvitatie" placeholder="Introdu cheia master">
+            </div>
+          }
+
+          @if (authError) {
+            <div class="auth-error text-danger"> ⚠️ {{ authError }}</div>
+          }
+
+          <button class="btn-pariaza btn-auth" (click)="onSubmitAuth()" [disabled]="isAuthLoading" [style.opacity]="isAuthLoading ? '0.7' : '1'">
+            @if (isAuthLoading) {
+              ⏳ Se procesează...
+            } @else {
+              {{ authMode === 'login' ? 'Intră în cont' : (authMode === 'register' ? 'Creează Cont' : 'Schimbă Parola') }}
+            }
+          </button>
+        </div>
+
+        <div class="auth-footer">
+          @if (authMode === 'login') {
+            <a href="javascript:void(0)" (click)="setAuthMode('register')">Nu ai cont?</a>
+            <a href="javascript:void(0)" (click)="setAuthMode('reset')" class="forgot-pass-link">Ai uitat parola?</a>
+          } @else {
+            <a href="javascript:void(0)" (click)="setAuthMode('login')">Înapoi la meniul de Logare.</a>
+          }
+        </div>
+      </div>
+    </div>
+  }
+
+  @else {
+    <header class="main-header">
+      <div class="header-content">
+        <div class="header-titles">
+          <h1>📈 Terminal Pariuri Pro</h1>
+          <p>Scanner Value Bets • Criteriul Kelly • Fereastră CLV</p>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn-theme btn-icon-only" (click)="toggleTheme()" title="Schimbă tema">
+            <span class="theme-icon">{{ isDarkMode ? '☀️' : '🌙' }}</span>
+          </button>
+
+          <button class="btn-theme btn-logout btn-icon-only" (click)="logout()" title="Ieși din cont">
+            <span class="theme-icon">🚪</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="money-management-panel">
+        <div class="input-group">
+          <label for="buget">Banca Ta / Investiție (RON)</label>
+          <input type="number" id="buget" [(ngModel)]="bugetTotal" (ngModelChange)="valideazaBuget($event)" min="0">
+        </div>
+
+        <div class="input-group">
+          <label>Nivel Risc (Kelly)</label>
+          <select [(ngModel)]="strategieKelly">
+            <option [ngValue]="1">Full Kelly (Agresiv)</option>
+            <option [ngValue]="0.5">Half Kelly (Echilibrat)</option>
+            <option [ngValue]="0.25">Quarter Kelly (Sigur)</option>
+            <option [ngValue]="0.125">Eighth Kelly (Conservator)</option>
+          </select>
+        </div>
+
+        <div class="input-group">
+          <label>Limită/Pariu (%)</label>
+          <input type="number" [(ngModel)]="limitaPariuBanca" min="1" max="100" step="0.5">
+        </div>
+      </div>
+    </header>
+
+    <div class="meniu-navigare">
+      <button [class.activ]="ecranCurent === 'radar'" (click)="schimbaEcran('radar')">
+        🎯 Radar Value Bets
+      </button>
+      <button [class.activ]="ecranCurent === 'arbitraj'" (click)="schimbaEcran('arbitraj')" style="position: relative;">
+        ⚖️ Bani Siguri (Arbitraj)
+        @if (listaSureBets.length > 0) {
+          <span class="badge-notificare-mica">{{ listaSureBets.length }}</span>
+        }
+      </button>
+      <button [class.activ]="ecranCurent === 'portofoliu'" (click)="schimbaEcran('portofoliu')">
+        📊 Portofoliul Meu
+      </button>
+    </div>
+
+    @if (ecranCurent === 'radar') {
+      @if (isLoadingRadar) {
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <h2>Se scanează piața...</h2>
+        </div>
+      }
+      @else if (oportunitati) {
+        <main class="dashboard-main">
+          <section class="filtre-container">
+            <div class="filtru-grup">
+              <label>Sport</label>
+              <select (change)="schimbaSport($event)" [value]="sportSelectat" class="select-modern">
+                @for (sport of sporturiDisponibile; track sport) { <option [value]="sport">{{ sport }}</option> }
+              </select>
+            </div>
+            <div class="filtru-grup">
+              <label>Competiție</label>
+              <select (change)="schimbaLiga($event)" [value]="ligaSelectata" [disabled]="sportSelectat === 'Toate'" class="select-modern">
+                @for (liga of ligiDisponibile; track liga) { <option [value]="liga">{{ liga }}</option> }
+              </select>
+            </div>
+            <div class="filtru-grup">
+              <label>Prag Minim EV (%)</label>
+              <input type="number" (input)="schimbaEV($event)" [value]="valoareFiltruEV" step="0.1" min="0" class="select-modern" placeholder="0">
+            </div>
+          </section>
+
+          <section class="status-bar">
+            <div class="status-item"><span class="status-dot pulse"></span><span>Am găsit <strong>{{ oportunitati.total_oportunitati }}</strong> Value Bets</span></div>
+            <div class="status-item timer"><span>Actualizat: {{ oportunitati.timp_generare | date: 'mediumTime' }}</span></div>
+          </section>
+
+          <section class="cards-grid">
+            @for (meci of oportunitati.data; track meci.id) {
+              <article class="card" [ngClass]="{'super-value': meci.avantajEV >= 2, 'low-value': meci.avantajEV < 0.2}">
+                <div class="card-header" style="display: flex; justify-content: space-between; align-items: flex-start;">
+                  <div class="meci-info-complet" style="flex: 1;">
+                    <span class="liga-badge">{{ meci.liga }}</span>
+                    <div class="echipe-container">
+                      <div class="echipa"><img [ngSrc]="meci.logoGazda" width="50" height="50" class="team-logo" alt="Gazde">
+                        <span class="team-name">{{ meci.echipaGazda ? meci.echipaGazda : 'Echipă 1' }}</span>
+                      </div>
+                      <span class="vs-text">VS</span>
+                      <div class="echipa"><img [ngSrc]="meci.logoOaspete" width="50" height="50" class="team-logo" alt="Oaspeți">
+                        <span class="team-name">{{ meci.echipaOaspete ? meci.echipaOaspete : 'Echipă 2' }}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="time-badge">⏳ Începe în {{ meci.orePanaLaStart }}h</div>
+                </div>
+
+                <div class="card-body">
+                  <div class="pronostic-principal"><span class="eticheta">Mizezi pe:</span><span class="valoare-pronostic">{{ meci.pronostic }}</span></div>
+                  <div class="cote-grid">
+                    <div class="cota-box"><span class="cota-label">Cota Reală</span><span class="cota-valoare">{{ meci.cotaRealaCurata }}</span></div>
+                    <div class="cota-box highlight-box"><span class="cota-label">Cota {{ meci.agentie }}</span><span class="cota-valoare verde">{{ meci.cotaGasita }}</span></div>
+                  </div>
+                  <div class="matematica-grid" style="margin-bottom: 20px;">
+                    <div class="math-box"><span class="math-label">Avantaj (EV)</span><span class="ev-valoare verde">+{{ meci.avantajEV }}%</span></div>
+                    <div class="math-box align-right">
+                      <span class="math-label">Miza Recomandată ({{ calculeazaProcentAjustat(meci.kellyRecomandat) | number:'1.1-1' }}%)</span>
+                      <span class="kelly-valoare">{{ calculeazaSumaPariu(meci.kellyRecomandat) | currency:'RON':'symbol':'1.2-2' }}</span>
+                    </div>
+                  </div>
+
+                  @if (meci.ai_decizie === 'EVITĂ') {
+                    <div class="ai-rejected-state">
+                      <div class="ai-warning-header"><span class="icon-alert">🚨</span><span>Capcană Matematică (Încredere AI: {{ meci.ai_scor }}/10)</span></div>
+                      <p class="ai-reason-text">"{{ meci.ai_motiv }}"</p>
+                      @if (meci.ai_alternativa && meci.ai_alternativa !== 'Niciuna') {
+                        <div class="ai-alternative-highlight"><span class="tip-label">💡 Recomandare Alternativă:</span><span class="tip-value">{{ meci.ai_alternativa }}</span></div>
+                      }
+                    </div>
+                  } @else {
+                    @if (meci.ai_decizie === 'PARIAZĂ') {
+                      <div class="ai-approved-badge">🤖 Aprobat de DeepSeek (Încredere: {{ meci.ai_scor }}/10)</div>
+                      <div class="ai-reason-box"><p class="ai-reason-text">"{{ meci.ai_motiv }}"</p></div>
+                    }
+                  }
+
+                  @if (meci.ai_pariu_riscant && meci.ai_pariu_riscant !== 'Niciuna') {
+                    <div class="ai-risky-box">
+                      <div class="risky-header"><span class="fire-icon">🔥</span><span>Nu riști, nu câștigi:</span></div>
+                      <p class="risky-text">{{ meci.ai_pariu_riscant }}</p>
+                    </div>
+                  }
+
+                  @if (meci.altePariuri && meci.altePariuri.length > 0) {
+                    <div class="alte-pariuri-sectiune">
+                      <h4>💡 Ai putea paria și pe:</h4>
+                      <div class="alte-pariuri-lista">
+                        @for (altPariu of meci.altePariuri; track $index) {
+                          <div class="alt-pariu-item">
+                            <span class="alt-pronostic">{{ altPariu.pronostic }}</span>
+                            <div class="alt-date"><span class="alt-cota">{{ altPariu.cotaGasita }}</span><span class="alt-ev">+{{ altPariu.avantajEV }}%</span></div>
+                          </div>
+                        }
+                      </div>
+                    </div>
+                  }
+                </div>
+
+                <div class="card-footer" style="display: flex; gap: 10px; flex-direction: column;">
+                  <a [href]="getLinkAgentie(meci.agentie)" target="_blank" class="btn-pariaza">Pariază la {{ meci.agentie }}<span class="arrow">→</span></a>
+                  @if (!meci.salvat) {
+                    <button class="btn-salveaza" (click)="salveazaInPortofoliu(meci)">💾 Salvează în Portofoliu</button>
+                  } @else {
+                    <button class="btn-salvat" disabled>✅ Salvat în Tracker</button>
+                  }
+                </div>
+              </article>
+            }
+          </section>
+        </main>
+      }
+    }
+
+    @if (ecranCurent === 'arbitraj') {
+      <div class="arbitraj-container">
+        <div class="arbitraj-header">
+          <h2>⚖️ Calculator Bani Siguri (Arbitraj)</h2>
+          <p>Aici algoritmul găsește discrepanțe pe piață. Plasează suma indicată la fiecare agenție pentru a obține un profit garantat, indiferent de rezultatul meciului.</p>
+          <div class="alerta-investitie">Investiția totală se calculează pe baza sumei din "Banca Ta" din meniul de sus: <strong>{{ bugetTotal | currency:'RON':'symbol':'1.0-0' }}</strong></div>
+        </div>
+
+        @if (isLoadingRadar) {
+          <div class="loading-state"><div class="spinner"></div><h2>Se caută discrepanțe între agenții...</h2></div>
+        } @else if (listaSureBets.length === 0) {
+          <div class="loading-state" style="color: gray;">
+            <h2>Nu am găsit oportunități de Arbitraj momentan.</h2>
+            <p>Acestea sunt rare și dispar repede. Mai dă un refresh peste câteva minute!</p>
+          </div>
+        } @else {
+          <div class="cards-grid">
+            @for (surebet of listaSureBets; track surebet.id) {
+              <article class="card arbitraj-card">
+                <div class="card-header arbitraj-card-header">
+                  <span class="liga-badge">{{ surebet.liga }}</span>
+                  <h3 class="team-name" style="margin: 10px 0 0 0; text-align: center; font-size: 1.1rem;">{{ surebet.meci }}</h3>
+                  <div class="profit-garantat-badge">
+                    PROFIT GARANTAT: +{{ surebet.profitGarantat }}%
+                    <br><small>(+{{ (bugetTotal * surebet.profitGarantat / 100) | number:'1.2-2' }} RON)</small>
+                  </div>
+                </div>
+
+                <div class="card-body" style="padding: 15px;">
+                  <p class="distributie-titlu">Cum să împarți cei {{ bugetTotal }} RON:</p>
+                  <div class="legs-lista">
+                    @for (pariu of surebet.detaliiPariuri; track $index) {
+                      <div class="leg-item">
+                        <div class="leg-info">
+                          <span class="leg-agentie">{{ pariu.agentie }}</span>
+                          <span class="leg-pronostic">{{ pariu.pronostic }} &#64; <strong style="color: var(--accent-green); font-size: 1.1rem;">{{ pariu.cota }}</strong></span>
+                        </div>
+                        <div class="leg-miza">
+                          <span>Mizează:</span>
+                          <strong class="suma-exacta">{{ calculeazaMizaArbitraj(pariu.cota, surebet.detaliiPariuri) | currency:'RON':'symbol':'1.2-2' }}</strong>
+                        </div>
+                      </div>
+                    }
+                  </div>
+                </div>
+              </article>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (ecranCurent === 'portofoliu') {
+      <div class="portofoliu-container">
+        <div class="statistici-dashboard">
+          <div class="stat-card"><span>Bilete Jucate</span><h3>{{ listaPariuri.length }}</h3></div>
+          <div class="stat-card"><span>Total Mizat</span><h3>{{ totalMizat | number:'1.2-2' }} RON</h3></div>
+          <div class="stat-card ev-card"><span>Profit Matematic Așteptat (+EV)</span><h3>+{{ profitEstimat | number:'1.2-2' }} RON</h3></div>
+          <div class="stat-card" [class.profit-pozitiv]="profitRealizat > 0" [class.profit-negativ]="profitRealizat < 0">
+            <span>Profit REAL (Bani Veniți)</span><h3>{{ profitRealizat > 0 ? '+' : '' }}{{ profitRealizat | number:'1.2-2' }} RON</h3>
+          </div>
+        </div>
+
+        <div class="tabel-wrapper">
+          <table class="tabel-pariuri">
+            <thead>
+            <tr>
+              <th>Dată Salvare</th>
+              <th>Meci</th>
+              <th>Pronostic</th>
+              <th>Cotă</th>
+              <th>Miză Recomandată</th>
+              <th>EV Inițial</th>
+              <th>CLV (Closing Line)</th>
+              <th>Sfat AI</th>
+              <th>Status</th>
+            </tr>
+            </thead>
+            <tbody>
+              @for (pariu of listaPariuri; track pariu._id) {
+                <tr>
+                  <td>{{ pariu.dataSalvare | date:'dd/MM/yyyy HH:mm' }}</td>
+                  <td><strong>{{ pariu.meci }}</strong><br><small>{{ pariu.competitie }}</small></td>
+                  <td><span class="badge-pronostic">{{ pariu.pronostic }}</span></td>
+                  <td><strong>{{ pariu.cota | number:'1.2-2' }}</strong><br><small>{{ pariu.agentie }}</small></td>
+                  <td>{{ pariu.mizaRecomandata | number:'1.2-2' }} RON</td>
+                  <td class="text-verde">+{{ pariu.avantajEV | number:'1.1-1' }}%</td>
+                  <td style="font-weight: bold;">
+
+                    @if (pariu.clvFinal !== undefined && pariu.clvFinal !== null) {
+                      <span [ngStyle]="{'color': pariu.clvFinal > 0 ? '#10b981' : '#ef4444'}">
+                        {{ pariu.clvFinal > 0 ? '+' : '' }}{{ pariu.clvFinal | number:'1.1-1' }}%
+                      </span>
+                    } @else if (pariu.mesajCLV && pariu.mesajCLV !== '') {
+                      <div class="tooltip-container">
+                        <span style="color: #f59e0b; font-size: 0.85rem; cursor: help; font-weight: normal;">⚠️ Eroare Date</span>
+                        <div class="tooltip-text" style="font-weight: normal; font-size: 0.8rem;">
+                          {{ pariu.mesajCLV }}
+                        </div>
+                      </div>
+                    } @else {
+                      <span style="color: #94a3b8; font-size: 0.85rem; font-weight: normal; white-space: nowrap;">⏳ Se calculează...</span>
+                    }
+
+                  </td>
+                  <td style="text-align: center; font-weight: bold;">
+                    <div class="tooltip-container">
+                      <span class="badge-ai" [ngStyle]="{'color': pariu.ai_decizie === 'PARIAZĂ' ? '#10b981' : (pariu.ai_decizie === 'EVITĂ' ? '#ef4444' : '#6b7280')}">
+                        {{ pariu.ai_decizie === 'PARIAZĂ' ? '🤖 DA' : (pariu.ai_decizie === 'EVITĂ' ? '🤖 NU' : '➖') }}
+                      </span>
+
+                      @if (pariu.ai_motiv && pariu.ai_motiv !== 'Analiza AI nu este disponibilă.') {
+                        <div class="tooltip-text">
+                          <strong>Motivare AI:</strong><br>
+                          "{{ pariu.ai_motiv }}"
+                        </div>
+                      }
+                    </div>
+                  </td>
+                  <td>
+                    <span class="badge-status" [ngClass]="{'status-asteptare': pariu.status === 'In Asteptare','status-castigat': pariu.status === 'Castigat','status-pierdut': pariu.status === 'Pierdut','status-anulat': pariu.status === 'Anulat'}">{{ pariu.status === 'In Asteptare' ? '⏳' : (pariu.status === 'Castigat' ? '✅' : (pariu.status === 'Pierdut' ? '❌' : '🔄')) }} {{ pariu.status }}</span>
+                    @if (pariu.status === 'In Asteptare') {
+                      <div class="action-buttons">
+                        <button class="btn-win" title="Bifează Câștigat" (click)="schimbaStatus(pariu._id, 'Castigat')">✅</button>
+                        <button class="btn-lose" title="Bifează Pierdut" (click)="schimbaStatus(pariu._id, 'Pierdut')">❌</button>
+                        <button class="btn-void" title="Anulat (Cota 1)" (click)="schimbaStatus(pariu._id, 'Anulat')">🔄</button>
+                      </div>
+                    }
+                  </td>
+                </tr>
+              } @empty {
+                <tr><td colspan="9" style="text-align: center; padding: 30px; color: gray">Încă nu ai salvat niciun pariu în portofoliu. Întoarce-te la Radar!</td></tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      </div>
+    }
+  }
+</div>
